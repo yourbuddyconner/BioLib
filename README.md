@@ -8,8 +8,11 @@ models, drawn from published work, that can be composed with each other to
 derive new conclusions, with every conclusion traceable to the assumptions it
 rests on.
 
-> **Status: initial import. The build has not been verified yet.** This notice
-> will be replaced by the verified theorem list once `lake build` passes.
+**Status.** `lake build` passes on Lean `v4.34.0` with Mathlib `v4.34.0`. There
+is no `sorry` and no added axiom: the main theorems depend only on Lean's three
+standard axioms (`propext`, `Classical.choice`, `Quot.sound`). The full list is
+in [docs/PROOF_STATUS.md](docs/PROOF_STATUS.md). No real paper has been
+formalized yet; the two composed models are illustrative.
 
 ## What a proof here does and does not mean
 
@@ -54,6 +57,9 @@ about floating-point simulation.
 **Worked examples**
 
 - `BioLib/Examples/EnzymeNetwork.lean`: the mechanism `E + S ⇌ ES → E + P`.
+  Total enzyme `E + ES` and total substrate `S + ES + P` are proved to be
+  conservation laws, so they stay constant on every trajectory whatever the
+  rate laws are. Free enzyme alone is proved not to be conserved.
 - `BioLib/Papers/Examples/`: two independent models and their composition.
 
 ## A complete example: composing two models

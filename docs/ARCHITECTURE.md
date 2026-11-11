@@ -1,0 +1,92 @@
+# Architecture
+
+## Strategy
+
+BioLib is a library of mathematical models and theorems about them. It is not a
+database of biological facts and it does not define an ontology of biological
+entities. A model is a Lean definition. A result is a Lean theorem whose
+hypotheses are the model's assumptions.
+
+Three kinds of content are kept apart:
+
+1. **Definitions.** `def` and `structure` declarations. They assert nothing.
+2. **Theorems.** Deductions from explicit hypotheses, checked by the kernel.
+3. **Evidence.** Sources, parameter estimates and prose assumptions, stored as
+   data in `BioLib.Evidence`. The kernel does not check them and no theorem
+   depends on them.
+
+No `axiom` declarations and no `sorry` are allowed. An empirical claim enters a
+theorem only as a hypothesis, so it is visible in the theorem's statement.
+
+## Design principles
+
+- **Index types, not ontologies.** Species and reactions are arbitrary types
+  `S` and `R`. A model chooses its own, usually a small `inductive`.
+- **Reuse Mathlib.** Matrices, `mulVec`, `dotProduct`, derivatives, filters and
+  order lemmas are Mathlib's. BioLib adds no linear algebra or analysis of its own.
+- **One definition per mathematical form.** `saturation` is defined once and
+  serves as Michaelis–Menten, Monod and Holling type II. `expTrajectory` is
+  defined once and serves growth, decay and inhibition.
+- **Assumptions travel with parameters.** A model's parameters live in a
+  structure whose fields include the constraints (`K_pos : 0 < K`). A value of
+  the structure is a parameter set that satisfies them.
+- **Composition is function composition** where the models share an interface
+  quantity, and network union where they share species.
+- **Real numbers.** All quantities are `ℝ`. Theorems are exact statements about
+  reals and do not cover numerical simulation.
+
+## Modules
+
+| Module | Contents | Depends on |
+| --- | --- | --- |
+| `Foundations.Dynamics` | `expTrajectory`, solution and uniqueness for `x' = a x`, monotonicity, decay | Mathlib |
+| `Foundations.Saturation` | `saturation`, bounds, monotonicity, inversion | Mathlib |
+| `Chemistry.Reaction` | `Reaction`, `netChange`, `reverse` | Mathlib |
+| `Chemistry.Network` | `Network`, stoichiometric matrix, `rateOfChange`, `IsSteadyState`, `union` | `Reaction` |
+| `Chemistry.Conservation` | `IsConservationLaw`, invariance under fluxes and along trajectories, union | `Network` |
+| `Chemistry.Kinetics` | mass-action rate, flux and vector field | `Conservation` |
+| `Ecology.Growth` | exponential, logistic, Monod | `Foundations` |
+| `Ecology.Inhibition` | `netGrowthRate`, sign criteria, dynamics | `Foundations.Dynamics` |
+| `Ecology.Competition` | generalized Lotka–Volterra field | `Ecology.Growth` |
+| `Evidence.Provenance` | `Source`, `Assumption`, `Parameter`, `ParameterEvidence`, `ModelRecord` | none |
+| `Examples.EnzymeNetwork` | `E + S ⇌ ES → E + P` and its conservation laws | `Chemistry` |
+| `Papers.Examples.*` | two illustrative models and their composition | `Foundations`, `Ecology`, `Evidence` |
+
+`Chemistry` and `Ecology` do not import each other. Both may import
+`Foundations`. `Papers` modules import domain modules and `Evidence`, never the
+reverse.
+
+## Decisions and their reasons
+
+**Stoichiometric coefficients are natural numbers; net change is an integer.**
+This matches the usual chemical reading. The matrix used with real fluxes
+(`realStoichMatrix`) is the integer matrix with entries cast to `ℝ`.
+
+**Reactions are irreversible.** A reversible reaction is two entries in the
+network. `Reaction.reverse` builds the second one.
+
+**A network is a function `R → Reaction S`.** Duplicate reactions are allowed
+and count as separate columns.
+
+**Conservation is defined by `cᵀ S = 0` with real weights.** The equivalent
+reaction-by-reaction form (`isConservationLaw_iff`) is what concrete proofs use.
+
+**Network composition requires a shared species type.** `Network.union` takes
+two networks over the same `S`. Combining networks over different species types
+needs an explicit map into a common type; that map is where the scientific
+claim "these are the same species" lives, and it is not implemented yet.
+
+**Trajectories are functions `ℝ → S → ℝ` with a derivative at every time.**
+Results about trajectories assume a solution is given. Existence of solutions
+is not proved for nonlinear systems.
+
+**Units are not typed.** Units appear only as text in provenance records. Two
+quantities with different units can be added without a type error. This is the
+largest gap between the formal content and the science; see the roadmap.
+
+**Total division.** In Lean `x / 0 = 0`. Definitions such as `saturation` are
+therefore defined everywhere, and theorems carry the hypotheses (`0 < K`,
+`0 ≤ x`) that keep the denominator positive.
+
+**Every file imports all of Mathlib.** This is simple and slow. Narrowing the
+imports is listed in the roadmap.

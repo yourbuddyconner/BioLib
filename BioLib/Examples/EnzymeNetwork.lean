@@ -27,12 +27,16 @@ open BioLib.Chemistry
 /-- Species: free enzyme, substrate, enzyme–substrate complex, product. -/
 inductive Sp
   | E | S | ES | P
-  deriving DecidableEq, Fintype
+  deriving DecidableEq
+
+instance : Fintype Sp := ⟨{.E, .S, .ES, .P}, fun s => by cases s <;> simp⟩
 
 /-- Reactions: binding, unbinding, catalysis. -/
 inductive Rx
   | bind | unbind | cat
-  deriving DecidableEq, Fintype
+  deriving DecidableEq
+
+instance : Fintype Rx := ⟨{.bind, .unbind, .cat}, fun j => by cases j <;> simp⟩
 
 /-- `E + S → ES`, `ES → E + S`, `ES → E + P`. -/
 def network : Network Sp Rx where
@@ -42,7 +46,7 @@ def network : Network Sp Rx where
     | .cat => ⟨fun | .ES => 1 | _ => 0, fun | .E => 1 | .P => 1 | _ => 0⟩
 
 theorem sum_species (f : Sp → ℝ) : ∑ s, f s = f .E + f .S + f .ES + f .P := by
-  have h : (Finset.univ : Finset Sp) = {.E, .S, .ES, .P} := by decide
+  have h : (Finset.univ : Finset Sp) = {.E, .S, .ES, .P} := rfl
   rw [h]
   simp [add_assoc]
 

@@ -71,7 +71,9 @@ theorem tendsto_expTrajectory_atTop_zero (x₀ : ℝ) (ha : a < 0) :
     Tendsto (expTrajectory x₀ a) atTop (𝓝 0) := by
   have h1 : Tendsto (fun t : ℝ => a * t) atTop atBot :=
     tendsto_id.const_mul_atTop_of_neg ha
-  have h2 := (Real.tendsto_exp_atBot.comp h1).const_mul x₀
-  simpa [expTrajectory, Function.comp_def] using h2
+  have h2 : Tendsto (fun t => x₀ * Real.exp (a * t)) atTop (𝓝 (x₀ * 0)) :=
+    (Real.tendsto_exp_atBot.comp h1).const_mul x₀
+  rw [mul_zero] at h2
+  exact h2
 
 end BioLib
