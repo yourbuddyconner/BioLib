@@ -11,8 +11,8 @@ rests on.
 **Status.** `lake build` passes on Lean `v4.34.0` with Mathlib `v4.34.0`. There
 is no `sorry` and no added axiom: the main theorems depend only on Lean's three
 standard axioms (`propext`, `Classical.choice`, `Quot.sound`). The full list is
-in [docs/PROOF_STATUS.md](docs/PROOF_STATUS.md). No real paper has been
-formalized yet; the two composed models are illustrative.
+in [docs/PROOF_STATUS.md](docs/PROOF_STATUS.md). Two published models are
+formalized from their sources (Monod 1949, Regoes et al. 2004).
 
 ## What a proof here does and does not mean
 
@@ -50,6 +50,30 @@ about floating-point simulation.
 - The saturation response `vmax · x / (K + x)` (Michaelis–Menten, Monod, Holling II).
 - The linear ODE `x' = a x`: closed-form solution and uniqueness.
 
+- The Hill function, defined through the saturation response.
+- Dimensioned quantities (`Quantity d`), opt-in.
+
+**Published models** (`BioLib/Papers`)
+
+- `Monod1949`: growth rate against nutrient concentration, `R = R_K · C / (C₁ + C)`
+  (Monod, *Annu. Rev. Microbiol.* 3:371, equation 2).
+- `Regoes2004`: net bacterial growth rate against antibiotic concentration
+  (Regoes et al., *Antimicrob. Agents Chemother.* 48:3670, equations 1 to 4).
+  The paper's rewritten form (equation 3) is derived as a theorem.
+- `MonodRegoes`: their composition. Under an added, explicitly stated
+  hypothesis that the kill rate does not depend on growth rate, the
+  concentration needed to stop growth rises strictly with nutrient level.
+  This is a consequence of the hypothesis, not a finding of either paper.
+
+Each module's header states what was taken from the source, what was added,
+and what could not be checked. For Regoes 2004 the display equations could not
+be read in the copy consulted and were reconstructed from the paper's text.
+
+**SBML import** (`scripts/sbml_to_lean.py`)
+
+- Translates species and integer-stoichiometry reactions from an SBML file
+  into a `Network` with a provenance record. Kinetic laws are not imported.
+
 **Provenance** (`BioLib/Evidence`)
 
 - Records for sources, parameters, units, assumptions and parameter evidence.
@@ -60,7 +84,9 @@ about floating-point simulation.
   Total enzyme `E + ES` and total substrate `S + ES + P` are proved to be
   conservation laws, so they stay constant on every trajectory whatever the
   rate laws are. Free enzyme alone is proved not to be conserved.
-- `BioLib/Papers/Examples/`: two independent models and their composition.
+- `BioLib/Papers/Examples/`: two independent illustrative models and their composition.
+- `BioLib/Examples/ImportedEnzyme.lean`: a conservation law proved on a network
+  generated from `examples/sbml/enzyme.xml`.
 
 ## A complete example: composing two models
 
@@ -125,17 +151,33 @@ import BioLib
 #print axioms BioLib.Papers.Examples.Composition.composedGrowth_neg_of_threshold_lt
 ```
 
+To run the source checks (no `sorry`, no `axiom`, generated files up to date):
+
+```sh
+scripts/check.sh
+```
+
+To import an SBML model:
+
+```sh
+python3 scripts/sbml_to_lean.py model.xml ModelName > BioLib/Imported/ModelName.lean
+```
+
 ## Repository layout
 
 ```
 BioLib.lean                  root import
 BioLib/
-  Foundations/               Dynamics, Saturation
+  Foundations/               Dynamics, Saturation, Hill, Quantities
   Chemistry/                 Reaction, Network, Conservation, Kinetics
-  Ecology/                   Growth, Inhibition, Competition
+  Ecology/                   Growth, Inhibition, Competition, Dimensional
   Evidence/                  Provenance
-  Examples/                  EnzymeNetwork
+  Examples/                  EnzymeNetwork, ImportedEnzyme
+  Imported/                  generated from SBML, do not edit
+  Papers/                    Monod1949, Regoes2004, MonodRegoes
   Papers/Examples/           NutrientResponse, MicrobialInhibition, Composition
+scripts/                     sbml_to_lean.py, check.sh
+examples/sbml/               SBML test model
 docs/                        architecture, formalization guide, proof status, roadmap
 ```
 

@@ -12,3 +12,11 @@ import BioLib.Examples.EnzymeNetwork
 import BioLib.Papers.Examples.NutrientResponse
 import BioLib.Papers.Examples.MicrobialInhibition
 import BioLib.Papers.Examples.Composition
+import BioLib.Foundations.Hill
+import BioLib.Papers.Monod1949
+import BioLib.Papers.Regoes2004
+import BioLib.Papers.MonodRegoes
+import BioLib.Foundations.Quantities
+import BioLib.Ecology.Dimensional
+import BioLib.Imported.EnzymeMechanism
+import BioLib.Examples.ImportedEnzyme

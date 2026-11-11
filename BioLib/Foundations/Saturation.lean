@@ -13,6 +13,8 @@ nonnegative wherever the denominator matters.  Outside that range the formula is
 still defined (Lean's division is total, `a / 0 = 0`) but has no intended meaning.
 -/
 
+open Filter Topology
+
 namespace BioLib
 
 /-- Hyperbolic saturation: `vmax * x / (K + x)`. -/
@@ -73,5 +75,20 @@ theorem lt_saturation_iff (hK : 0 < K) (hx : 0 ≤ x) (hy : y < vmax) :
 theorem saturation_le_of_max_le (hv : 0 ≤ vmax) (hK : 0 < K) (hx : 0 ≤ x) (hy : vmax ≤ y) :
     saturation vmax K x ≤ y :=
   (saturation_le_max hv hK hx).trans hy
+
+/-- The response approaches `vmax` as the input grows without bound. -/
+theorem tendsto_saturation_atTop (vmax : ℝ) (hK : 0 < K) :
+    Tendsto (saturation vmax K) atTop (𝓝 vmax) := by
+  have h1 : Tendsto (fun x : ℝ => vmax * K / (K + x)) atTop (𝓝 0) :=
+    tendsto_const_nhds.div_atTop (tendsto_atTop_add_const_left _ K tendsto_id)
+  have h2 : Tendsto (fun x : ℝ => vmax - vmax * K / (K + x)) atTop (𝓝 (vmax - 0)) :=
+    tendsto_const_nhds.sub h1
+  rw [sub_zero] at h2
+  refine h2.congr' ?_
+  filter_upwards [eventually_ge_atTop (0 : ℝ)] with x hx
+  have hx' : K + x ≠ 0 := by linarith
+  unfold saturation
+  field_simp
+  ring
 
 end BioLib

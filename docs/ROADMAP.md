@@ -6,34 +6,50 @@ started" is implemented.
 ## Done
 
 - Reaction networks, stoichiometric matrix, mass balance, conservation laws, mass-action kinetics.
-- Saturation response and the linear ODE `x' = a x`.
+- Saturation response, Hill function, and the linear ODE `x' = a x`.
 - Exponential, logistic and Monod growth; linear inhibition; generalized Lotka–Volterra field.
 - Lightweight provenance records.
-- Composition of two independently defined models into a nutrient threshold theorem.
+- Composition of two independently defined illustrative models into a nutrient threshold theorem.
+- Two source-grounded models, Monod (1949) and Regoes et al. (2004), and a conditional composition.
+- Opt-in dimensioned quantities.
+- SBML importer for stoichiometry, tested on one hand-written model.
+- CI: source checks and `lake build`.
 
 ## Next
 
-**Real published models.** Formalize two published models that share an
-interface, each with exact source, equation numbers, assumptions, a proved
-property and documented deviations. Then decide whether they compose. No real
-paper has been formalized yet. The models under `Papers/Examples` are
-illustrative. Candidate sources must be read and checked against the original
-text before any module cites them.
+**Check Regoes 2004 against the typeset equations.** The display equations
+could not be read in the copy consulted. Someone with the PDF should compare
+equations 2 and 3 with `deathRate` and `psi_eq_rewritten`, and record fitted
+values from Table 1 as parameter evidence.
 
-**Typed units.** Units are free text today. Options are a dimension-indexed
-quantity type or a dimension check at the provenance level.
+**Growth-rate-dependent killing.** The Monod–Regoes composition assumes the
+kill rate is independent of growth rate. Find a published model of how kill
+rate depends on growth rate, formalize it, and replace the assumption.
+
+**Time-varying concentration.** Regoes' equation 5 (periodic dosing with
+exponential decay) and the resulting non-autonomous linear ODE.
+
+**Units and logarithm bases.** Dimensions are tracked; units and the base of
+logarithmic rates are not. Decide whether to type them.
 
 **Network composition across species types.** A map from each network's species
 into a common type, with conservation results for the embedded union.
 
-**Narrower imports.** Replace `import Mathlib` with the specific modules each file needs.
+**SBML on real models.** Run the importer on BioModels entries. Decide how to
+represent boundary species, which most published models use and the importer
+currently rejects. Import kinetic laws for mass-action reactions.
+
+**Narrower imports.** Replace `import Mathlib` with the specific modules each
+file needs. A first attempt with `#min_imports` did not give usable results for
+downstream files.
+
+**Toolchain.** Move to the current Lean and Mathlib release and regenerate
+`lake-manifest.json` with `lake update`.
 
 ## Later
 
-**Interoperability.** Find the smallest subset of SBML that maps faithfully to
-`Network` (species, reactions, integer stoichiometry). Write an importer,
-probably in Python, that emits Lean source with a provenance record. Look at
-BioModels and COBRA-style models as inputs. An imported model is a definition;
+**Interoperability.** COBRA-style metabolic models, and identifier systems
+(ChEBI, KEGG) as provenance for species. An imported model is a definition;
 importing it validates nothing.
 
 **Dynamics.** Existence and positivity of solutions for mass-action systems.

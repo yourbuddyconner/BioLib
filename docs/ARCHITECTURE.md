@@ -41,6 +41,8 @@ theorem only as a hypothesis, so it is visible in the theorem's statement.
 | --- | --- | --- |
 | `Foundations.Dynamics` | `expTrajectory`, solution and uniqueness for `x' = a x`, monotonicity, decay | Mathlib |
 | `Foundations.Saturation` | `saturation`, bounds, monotonicity, inversion | Mathlib |
+| `Foundations.Hill` | `hill`, bounds, monotonicity, inversion | `Saturation` |
+| `Foundations.Quantities` | `Dimension`, `Quantity d` | Mathlib |
 | `Chemistry.Reaction` | `Reaction`, `netChange`, `reverse` | Mathlib |
 | `Chemistry.Network` | `Network`, stoichiometric matrix, `rateOfChange`, `IsSteadyState`, `union` | `Reaction` |
 | `Chemistry.Conservation` | `IsConservationLaw`, invariance under fluxes and along trajectories, union | `Network` |
@@ -48,9 +50,14 @@ theorem only as a hypothesis, so it is visible in the theorem's statement.
 | `Ecology.Growth` | exponential, logistic, Monod | `Foundations` |
 | `Ecology.Inhibition` | `netGrowthRate`, sign criteria, dynamics | `Foundations.Dynamics` |
 | `Ecology.Competition` | generalized Lotka–Volterra field | `Ecology.Growth` |
+| `Ecology.Dimensional` | dimension-checked wrappers for saturation and inhibition | `Quantities`, `Inhibition` |
 | `Evidence.Provenance` | `Source`, `Assumption`, `Parameter`, `ParameterEvidence`, `ModelRecord` | none |
 | `Examples.EnzymeNetwork` | `E + S ⇌ ES → E + P` and its conservation laws | `Chemistry` |
 | `Papers.Examples.*` | two illustrative models and their composition | `Foundations`, `Ecology`, `Evidence` |
+| `Papers.Monod1949`, `Papers.Regoes2004` | source-grounded models | `Foundations`, `Evidence` |
+| `Papers.MonodRegoes` | composition of the two | both paper modules |
+| `Imported.*` | networks generated from SBML | `Chemistry.Network`, `Evidence` |
+| `Examples.ImportedEnzyme` | a theorem about a generated network | `Imported`, `Chemistry` |
 
 `Chemistry` and `Ecology` do not import each other. Both may import
 `Foundations`. `Papers` modules import domain modules and `Evidence`, never the
@@ -80,9 +87,28 @@ claim "these are the same species" lives, and it is not implemented yet.
 Results about trajectories assume a solution is given. Existence of solutions
 is not proved for nonlinear systems.
 
-**Units are not typed.** Units appear only as text in provenance records. Two
-quantities with different units can be added without a type error. This is the
-largest gap between the formal content and the science; see the roadmap.
+**Dimensions are opt-in; units are not tracked.** Core definitions take bare
+reals, so that Mathlib's lemmas about `ℝ` apply directly. `Quantity d` tags a
+real with a dimension, and `Ecology.Dimensional` wraps two models with typed
+signatures whose values equal the untyped functions by definition. Dimension
+checking does not tell hours from seconds, and does not tell a base-2 rate from
+a base-10 rate: the Monod–Regoes composition needs a factor `log₁₀ 2` between
+two quantities of the same dimension. Units remain text in provenance records.
+
+**Paper modules reconstruct, then prove.** Where a source states a derived
+formula, the module defines the primitive equations and proves the derived one
+(`Regoes2004.psi_eq_rewritten`). A transcription error then shows up as a
+failed proof.
+
+**Compositions name their added hypotheses.** A composition of two papers
+usually needs an assumption neither paper makes. It goes in the module header
+and in the theorem's hypotheses, and the result is described as conditional.
+
+**SBML import is stoichiometry only.** `scripts/sbml_to_lean.py` rejects what
+it cannot map faithfully (non-integer stoichiometry, boundary and constant
+species) and lists what it ignores (kinetic laws, compartments, rules, events)
+in the generated file. Generated files live in `BioLib/Imported` and are
+checked against their source by `scripts/check.sh`.
 
 **Total division.** In Lean `x / 0 = 0`. Definitions such as `saturation` are
 therefore defined everywhere, and theorems carry the hypotheses (`0 < K`,

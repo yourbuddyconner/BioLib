@@ -104,6 +104,34 @@ definitions. Review it by hand.
 Start the file with a `/-! ... -/` block that gives the equations, says whether
 the model is source-grounded or illustrative, and lists what Lean does not check.
 
+## Working from a real paper
+
+`BioLib/Papers/Monod1949.lean` and `BioLib/Papers/Regoes2004.lean` are the
+reference examples. In addition to the steps above:
+
+- Quote the source's own definition of each symbol in the module header.
+- Define the primitive equations and prove any formula the paper derives from
+  them. Do not transcribe the derived formula as a definition.
+- Turn the paper's verbal claims about its formula into theorems where you can
+  ("the rate at which it is half the maximum", "the rate limit").
+- Record the logarithm base and time unit of every rate.
+- If part of the source could not be read or is ambiguous, say so in the header
+  and in `deviations`. State which reading you used and why.
+- Record a parameter value as evidence only if you read it in the source.
+
+## Importing an SBML model
+
+```sh
+python3 scripts/sbml_to_lean.py model.xml ModelName > BioLib/Imported/ModelName.lean
+```
+
+Add the module to `BioLib.lean` and, if it should be kept in sync, to
+`scripts/check.sh`. The importer handles species and reactions with constant
+nonnegative integer stoichiometry, and splits reversible reactions in two. It
+stops with an error on anything else that affects stoichiometry. Write theorems
+about the imported network in a separate hand-written file, as in
+`BioLib/Examples/ImportedEnzyme.lean`.
+
 ## Composing models
 
 Two models compose when an output of one is an input of the other.
@@ -125,7 +153,7 @@ A conservation law of both parts is a conservation law of the union
 
 ## Checklist
 
-- [ ] `lake build` passes with no warnings from your files.
+- [ ] `lake build` passes with no warnings from your files, and `scripts/check.sh` passes.
 - [ ] No `sorry`, no `axiom`.
 - [ ] `#print axioms` on your main theorems shows only `propext`, `Classical.choice`, `Quot.sound`.
 - [ ] Every assumption is a hypothesis or a structure field.
