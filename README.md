@@ -69,6 +69,22 @@ Each module's header states what was taken from the source, what was added,
 and what could not be checked. For Regoes 2004 the display equations could not
 be read in the copy consulted and were reconstructed from the paper's text.
 
+**Simulator** (`BioLib/Sim`, `Main.lean`, `python/biolib_sim.py`)
+
+- A community simulator written in Lean: competitive Lotka–Volterra dynamics
+  with an inhibitor, integrated by Euler steps, then measurement bias,
+  relative abundance and multinomial read counts. It compiles to the
+  `biolib-sim` executable, which writes CSV.
+- The model definitions are generic over the number type. The executable runs
+  them on floats; the theorems are about the same definitions over the reals.
+- Proved: the simulated rate law is the library's Lotka–Volterra field; an
+  Euler step keeps absent species absent and present species present under a
+  step-size condition; relative abundance is unchanged when all abundances
+  scale together, so total abundance cannot be recovered from it.
+- Not proved: anything about floating-point evaluation, the random sampling
+  code, or the accuracy of the Euler method.
+- `python/biolib_sim.py` runs the executable and returns numpy arrays.
+
 **SBML import** (`scripts/sbml_to_lean.py`)
 
 - Translates species and integer-stoichiometry reactions from an SBML file
@@ -151,6 +167,18 @@ import BioLib
 #print axioms BioLib.Papers.Examples.Composition.composedGrowth_neg_of_threshold_lt
 ```
 
+To simulate data from Python (needs numpy):
+
+```sh
+lake build biolib-sim
+cd python && python3 -c "
+from biolib_sim import simulate
+d = simulate(species=50, samples=200, studies=3, bias_sd=0.5, seed=1)
+print(d.counts.shape, d.treated.mean())"
+```
+
+Or directly: `.lake/build/bin/biolib-sim --help`.
+
 To run the source checks (no `sorry`, no `axiom`, generated files up to date):
 
 ```sh
@@ -174,8 +202,11 @@ BioLib/
   Evidence/                  Provenance
   Examples/                  EnzymeNetwork, ImportedEnzyme
   Imported/                  generated from SBML, do not edit
+  Sim/                       Core (no Mathlib), Run (floats, sampling), Theorems
   Papers/                    Monod1949, Regoes2004, MonodRegoes
   Papers/Examples/           NutrientResponse, MicrobialInhibition, Composition
+Main.lean                    biolib-sim command line
+python/                      biolib_sim.py wrapper and its checks
 scripts/                     sbml_to_lean.py, check.sh
 examples/sbml/               SBML test model
 docs/                        architecture, formalization guide, proof status, roadmap

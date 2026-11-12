@@ -14,3 +14,7 @@ jobs:
         run: scripts/check.sh
       - name: Build with Lean
         uses: leanprover/lean-action@v1
+      - name: Simulator checks
+        run: |
+          python3 -m pip install --quiet numpy
+          cd python && python3 test_biolib_sim.py

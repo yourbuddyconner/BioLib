@@ -13,9 +13,28 @@ started" is implemented.
 - Two source-grounded models, Monod (1949) and Regoes et al. (2004), and a conditional composition.
 - Opt-in dimensioned quantities.
 - SBML importer for stoichiometry, tested on one hand-written model.
-- CI: source checks and `lake build`.
+- CI: source checks, `lake build`, simulator checks.
+- A community simulator in Lean (`biolib-sim`) with a Python wrapper, and theorems about its core.
 
 ## Next
+
+**Simulator realism.** The generative model uses arbitrary parameter
+distributions. Next: a consumer-resource model so nutrients drive composition;
+parameter distributions fitted to, or at least compared with, real community
+statistics (richness, abundance distributions, prevalence); time-varying
+inhibitor; compositional and zero-inflation effects beyond multinomial sampling.
+
+**Simulator benchmark for Arcadia.** Use simulated data with known labels and
+a controllable study effect to measure how many labelled samples a classifier
+needs at a given noise level, before any use as training data.
+
+**Simulator guarantees.** Boundedness of competitive Lotka–Volterra
+trajectories; an error bound for the Euler step; a verified sampler.
+
+**Simulator speed.** About 0.2 s per sample at 50 species and 2.4 s at 200 on
+a laptop. The generic code boxes every float. Specializing the inner loop to
+unboxed float arrays, with a proof or test that it agrees with the generic
+definition, is the obvious next step.
 
 **Check Regoes 2004 against the typeset equations.** The display equations
 could not be read in the copy consulted. Someone with the PDF should compare

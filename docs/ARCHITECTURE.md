@@ -56,6 +56,9 @@ theorem only as a hypothesis, so it is visible in the theorem's statement.
 | `Papers.Examples.*` | two illustrative models and their composition | `Foundations`, `Ecology`, `Evidence` |
 | `Papers.Monod1949`, `Papers.Regoes2004` | source-grounded models | `Foundations`, `Evidence` |
 | `Papers.MonodRegoes` | composition of the two | both paper modules |
+| `Sim.Core` | generic computable model, Euler step, relative abundance | none (no Mathlib) |
+| `Sim.Run` | random pool, sampling, CSV output, on `Float` | `Sim.Core` |
+| `Sim.Theorems` | properties of `Sim.Core` over the reals | `Sim.Core`, `Ecology`, `Chemistry` |
 | `Imported.*` | networks generated from SBML | `Chemistry.Network`, `Evidence` |
 | `Examples.ImportedEnzyme` | a theorem about a generated network | `Imported`, `Chemistry` |
 
@@ -103,6 +106,29 @@ failed proof.
 **Compositions name their added hypotheses.** A composition of two papers
 usually needs an assumption neither paper makes. It goes in the module header
 and in the theorem's hypotheses, and the result is described as conditional.
+
+**The simulator is Lean; Python is a wrapper.** Models, the integrator, the
+observation step and data generation are Lean code. Python (`python/`) only
+runs the executable and hands arrays to numpy and training code.
+
+**Executable code does not import Mathlib.** An executable that imports
+Mathlib must compile all of it. `Sim.Core` and `Sim.Run` use only the Lean
+core library; `Sim.Theorems` imports both `Sim.Core` and Mathlib and proves
+facts about the core definitions.
+
+**One definition, three number types.** `Sim.Core` assumes only `+ - * /` and
+`0` of its number type, because `Float` is not a lawful field. The same
+definition runs on `Float`, runs exactly on `Rat`, and is reasoned about on
+`ℝ`. Theorems hold for exact arithmetic. For floats they are a specification,
+tested by `biolib-sim --selfcheck` (float against exact rational on a small
+system) and `python/test_biolib_sim.py`. Exact rational runs are limited to
+about 16 steps of a quadratic model, because the size of the numbers doubles
+every step. Known divergence: `0 / 0` is `0` over the reals and NaN in floats.
+
+**States are functions in proofs and arrays at run time.** Model functions
+take and return `Fin n → α`. `stepVec` evaluates one into a `Vector`, so each
+step is stored and not recomputed; `stepVec_getElem` says the stored values
+are the function's values.
 
 **SBML import is stoichiometry only.** `scripts/sbml_to_lean.py` rejects what
 it cannot map faithfully (non-integer stoichiometry, boundary and constant

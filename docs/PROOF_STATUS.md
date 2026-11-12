@@ -148,6 +148,28 @@ nutrient level and growth rate; `ψmax = log₁₀ 2 · R(C)`; `log₁₀ 2 · R
 | ★ `Dimensional.netGrowthRateQ_neg_iff` | the untyped sign criterion holds for the dimension-checked model | Proved |
 | ★ `ImportedEnzyme.totalEnzyme_conserved` | `E + ES` conserved in the network generated from SBML | Proved |
 
+## Simulator core (`BioLib.Sim`)
+
+All statements are about the definitions in exact arithmetic.
+
+| Theorem | Statement | Assumptions | Status |
+| --- | --- | --- | --- |
+| ★ `sumFin_eq_sum` | the fold-based sum is the finite sum | commutative monoid | Proved |
+| ★ `stepVec_getElem` | array storage does not change computed values | none | Proved |
+| ★ `glvRate_eq_glvField` | simulated rate law = `Ecology.glvField` | reals | Proved |
+| `inhibitedRates_eq_netGrowthRate` | simulated inhibition = `Ecology.netGrowthRate` | reals | Proved |
+| ★ `eulerStep_glvRate_pos` | a present species stays present after a step | `xᵢ > 0`, `h · (per-capita rate) > −1` | Proved |
+| ★ `eulerStep_glvRate_absent` | an absent species stays absent | `xᵢ = 0` | Proved |
+| ★ `eulerStep_conserves` | an Euler step preserves linear conservation laws exactly | `cᵀ S = 0`; any step size | Proved |
+| ★ `sum_relAbundance` | relative abundances sum to 1 | total ≠ 0; any field | Proved |
+| ★ `relAbundance_scale` | scaling all abundances leaves relative abundance unchanged | factor ≠ 0 | Proved |
+| ★ `relAbundance_not_injective` | a different total gives the same relative abundances | total ≠ 0; characteristic 0 | Proved |
+| ★ `relAbundance_applyBias_scale` | measurement bias is identifiable only up to a common factor | factor ≠ 0 | Proved |
+
+Measured, not proved: on a three-species system the float simulation differs
+from the exact rational one by less than one machine epsilon over 16 steps
+(`biolib-sim --selfcheck 16`).
+
 ## Not proved, not checked
 
 **Empirical assumptions.** That any organism's production follows a saturation
@@ -170,6 +192,14 @@ assumption, and it is known to be doubtful for many antibiotics.
 
 **Units and logarithm bases.** Dimensions can be checked with `Quantity`, on an
 opt-in basis. Units and the base of logarithmic rates are not represented.
+
+**The simulator at run time.** No theorem covers floating-point evaluation.
+The random number generation, the parameter draws and the multinomial sampler
+in `Sim.Run` are unverified code. The error of the Euler method against the
+true solution of the differential equation is not bounded. Whether simulated
+communities resemble real ones is an empirical question that has not been
+examined at all: the interaction matrix, growth rates, sensitivities and bias
+are drawn from arbitrary distributions.
 
 **The SBML importer.** The Python script is not verified. Its output is
 type-checked by Lean, but nothing proves the output matches the SBML file. It

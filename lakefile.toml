@@ -1,6 +1,6 @@
 name = "BioLib"
 version = "0.1.0"
-defaultTargets = ["BioLib"]
+defaultTargets = ["BioLib", "biolib-sim"]
 
 [leanOptions]
 autoImplicit = false
@@ -13,3 +13,7 @@ rev = "v4.34.0"
 
 [[lean_lib]]
 name = "BioLib"
+
+[[lean_exe]]
+name = "biolib-sim"
+root = "Main"
