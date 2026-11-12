@@ -16,5 +16,5 @@ jobs:
         uses: leanprover/lean-action@v1
       - name: Simulator checks
         run: |
-          python3 -m pip install --quiet numpy
+          python3 -m pip install --quiet numpy scipy
           cd python && python3 test_biolib_sim.py

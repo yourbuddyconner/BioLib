@@ -59,6 +59,7 @@ theorem only as a hypothesis, so it is visible in the theorem's statement.
 | `Sim.Core` | generic computable model, Euler step, relative abundance | none (no Mathlib) |
 | `Sim.Run` | random pool, sampling, CSV output, on `Float` | `Sim.Core` |
 | `Sim.Theorems` | properties of `Sim.Core` over the reals | `Sim.Core`, `Ecology`, `Chemistry` |
+| `Papers.Grilli2020` | stochastic logistic model, stationary law, occupancy | `Sim.Core`, `Evidence` |
 | `Imported.*` | networks generated from SBML | `Chemistry.Network`, `Evidence` |
 | `Examples.ImportedEnzyme` | a theorem about a generated network | `Imported`, `Chemistry` |
 
@@ -129,6 +130,14 @@ every step. Known divergence: `0 / 0` is `0` over the reals and NaN in floats.
 take and return `Fin n → α`. `stepVec` evaluates one into a `Vector`, so each
 step is stored and not recomputed; `stepVec_getElem` says the stored values
 are the function's values.
+
+**Simulator parameters are estimated, and estimators are tested first.** The
+default generator is a published model whose parameters are estimated from a
+count table (`python/fit_slm.py`). Each estimator is first run on simulated
+data with known parameters; one that does not recover them is not used on real
+data. Realism is judged on held-out samples, against statistics that were not
+used in fitting, with the difference between two halves of the real data as
+the yardstick. Parts with no source are named as such in the code.
 
 **SBML import is stoichiometry only.** `scripts/sbml_to_lean.py` rejects what
 it cannot map faithfully (non-integer stoichiometry, boundary and constant

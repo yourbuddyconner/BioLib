@@ -56,6 +56,31 @@ def simulate (r s : Fin n → α) (A : Fin n → Fin n → α) (B h : α) (k : N
 def observe (b : Fin n → α) (v : Vector α n) : Vector α n :=
   stepVec (fun x => relAbundance (applyBias b x)) v
 
+/-! ### Stochastic logistic model (Grilli 2020)
+
+`dx/dt = (x / τ) (1 - x / K) + √(σ / τ) x ξ(t)`.  The definitions below are the
+deterministic ingredients; see `BioLib.Papers.Grilli2020` for the source and
+for what is proved about them. -/
+
+/-- Drift of the stochastic logistic model: `(x / τ) * (1 - x / K)`. -/
+def slmDrift [OfNat α 1] (τ K x : α) : α := x / τ * (1 - x / K)
+
+/-- One Euler–Maruyama step of the stochastic logistic model.  `w` is the
+noise increment `√(σ h / τ) * z` for a standard normal `z`, supplied by the caller. -/
+def slmStep [OfNat α 1] (τ K h w x : α) : α := x + h * slmDrift τ K x + w * x
+
+/-- Fraction of the growth rate left under an inhibitor: `1 - τ * s * B`, for
+sensitivity `s` and concentration `B`. -/
+def growthFraction [OfNat α 1] (τ s B : α) : α := 1 - τ * s * B
+
+/-- Shape parameter of the stationary gamma distribution when a fraction `f`
+of the growth rate remains: `2 f / σ - 1`.  At `f = 1` this is `2 / σ - 1`. -/
+def slmShape [OfNat α 1] [OfNat α 2] (σ f : α) : α := 2 * f / σ - 1
+
+/-- Mean of the stationary distribution when a fraction `f` of the growth rate
+remains: `K * (f - σ / 2)`.  At `f = 1` this is `K * (1 - σ / 2)`. -/
+def slmMean [OfNat α 2] (K σ f : α) : α := K * (f - σ / 2)
+
 /-- `observe`, computing the total once instead of once per component. -/
 def observeFast (b : Fin n → α) (v : Vector α n) : Vector α n :=
   let w := stepVec (applyBias b) v

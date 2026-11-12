@@ -15,14 +15,19 @@ started" is implemented.
 - SBML importer for stoichiometry, tested on one hand-written model.
 - CI: source checks, `lake build`, simulator checks.
 - A community simulator in Lean (`biolib-sim`) with a Python wrapper, and theorems about its core.
+- Grilli (2020) formalized; the simulator's default model, with parameters estimated from data and a held-out comparison.
 
 ## Next
 
-**Simulator realism.** The generative model uses arbitrary parameter
-distributions. Next: a consumer-resource model so nutrients drive composition;
-parameter distributions fitted to, or at least compared with, real community
-statistics (richness, abundance distributions, prevalence); time-varying
-inhibitor; compositional and zero-inflation effects beyond multinomial sampling.
+**Simulator realism.** The stochastic logistic model fitted to real cohorts
+overpredicts dominance and underpredicts diversity. Candidate causes to test,
+in order: fluctuations of abundant taxa (the shape rises faster with abundance
+than a single Taylor exponent allows); the compositional constraint, which the
+paper's independent-species model ignores; artefactual rare OTUs in the
+reference tables. Also needed: deeper and independently processed reference
+data (the Human Microbiome Compendium used by Arcadia), the paper's
+Supplementary Notes for its estimation procedure, and a sourced model for the
+treatment effect and measurement bias.
 
 **Simulator benchmark for Arcadia.** Use simulated data with known labels and
 a controllable study effect to measure how many labelled samples a classifier

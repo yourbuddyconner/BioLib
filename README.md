@@ -11,8 +11,8 @@ rests on.
 **Status.** `lake build` passes on Lean `v4.34.0` with Mathlib `v4.34.0`. There
 is no `sorry` and no added axiom: the main theorems depend only on Lean's three
 standard axioms (`propext`, `Classical.choice`, `Quot.sound`). The full list is
-in [docs/PROOF_STATUS.md](docs/PROOF_STATUS.md). Two published models are
-formalized from their sources (Monod 1949, Regoes et al. 2004).
+in [docs/PROOF_STATUS.md](docs/PROOF_STATUS.md). Three published models are
+formalized from their sources (Monod 1949, Regoes et al. 2004, Grilli 2020).
 
 ## What a proof here does and does not mean
 
@@ -60,7 +60,10 @@ about floating-point simulation.
 - `Regoes2004`: net bacterial growth rate against antibiotic concentration
   (Regoes et al., *Antimicrob. Agents Chemother.* 48:3670, equations 1 to 4).
   The paper's rewritten form (equation 3) is derived as a theorem.
-- `MonodRegoes`: their composition. Under an added, explicitly stated
+- `Grilli2020`: the stochastic logistic model and the macroecological laws
+  (Grilli, *Nat. Commun.* 11:4743). The paper's stationary distribution is
+  shown to satisfy the model's stationary Fokker–Planck equation.
+- `MonodRegoes`: the composition of the first two. Under an added, explicitly stated
   hypothesis that the kill rate does not depend on growth rate, the
   concentration needed to stop growth rises strictly with nutrient level.
   This is a consequence of the hypothesis, not a finding of either paper.
@@ -69,21 +72,29 @@ Each module's header states what was taken from the source, what was added,
 and what could not be checked. For Regoes 2004 the display equations could not
 be read in the copy consulted and were reconstructed from the paper's text.
 
-**Simulator** (`BioLib/Sim`, `Main.lean`, `python/biolib_sim.py`)
+**Simulator** (`BioLib/Sim`, `Main.lean`, `python/`)
 
-- A community simulator written in Lean: competitive Lotka–Volterra dynamics
-  with an inhibitor, integrated by Euler steps, then measurement bias,
-  relative abundance and multinomial read counts. It compiles to the
-  `biolib-sim` executable, which writes CSV.
+- Written in Lean and compiled to the `biolib-sim` executable, which writes
+  simulated read counts as CSV. `python/biolib_sim.py` runs it and returns
+  numpy arrays.
+- Default model: the stochastic logistic model of Grilli (2020). Each species'
+  abundance is gamma distributed across samples, mean abundances are lognormal
+  across species, and species do not interact. Its four parameters are
+  estimated from a real count table by `python/fit_slm.py`.
+- Second model (`--model glv`): Lotka–Volterra competition integrated by Euler
+  steps. Its parameter distributions are arbitrary; it is kept as the dynamic
+  model the Euler-step theorems are about, not as a realistic generator.
 - The model definitions are generic over the number type. The executable runs
   them on floats; the theorems are about the same definitions over the reals.
-- Proved: the simulated rate law is the library's Lotka–Volterra field; an
-  Euler step keeps absent species absent and present species present under a
-  step-size condition; relative abundance is unchanged when all abundances
-  scale together, so total abundance cannot be recovered from it.
-- Not proved: anything about floating-point evaluation, the random sampling
-  code, or the accuracy of the Euler method.
-- `python/biolib_sim.py` runs the executable and returns numpy arrays.
+- Unsourced parts, in both models: the treatment effect (which species are
+  sensitive and how strongly) and the per-study measurement bias. Their
+  distributions were chosen by hand.
+- `python/realism.py --held-out` fits the model on half of a real cohort and
+  compares its predictions with the other half. Current result on three gut
+  cohorts: sparsity, occupancy and the spread of mean abundances are predicted
+  within about 15%; dominance by the top taxon is overpredicted by a factor of
+  about two, and diversity is too low as a result. See
+  [docs/PROOF_STATUS.md](docs/PROOF_STATUS.md).
 
 **SBML import** (`scripts/sbml_to_lean.py`)
 
@@ -173,11 +184,18 @@ To simulate data from Python (needs numpy):
 lake build biolib-sim
 cd python && python3 -c "
 from biolib_sim import simulate
-d = simulate(species=50, samples=200, studies=3, bias_sd=0.5, seed=1)
+d = simulate(species=2000, samples=200, beta=0.2, mad_sigma=3.5, seed=1)
 print(d.counts.shape, d.treated.mean())"
 ```
 
 Or directly: `.lake/build/bin/biolib-sim --help`.
+
+To compare the simulator with real data (needs numpy and scipy):
+
+```sh
+scripts/fetch_reference.sh               # public 16S tables, about 30 MB
+cd python && python3 realism.py --held-out
+```
 
 To run the source checks (no `sorry`, no `axiom`, generated files up to date):
 
@@ -203,11 +221,11 @@ BioLib/
   Examples/                  EnzymeNetwork, ImportedEnzyme
   Imported/                  generated from SBML, do not edit
   Sim/                       Core (no Mathlib), Run (floats, sampling), Theorems
-  Papers/                    Monod1949, Regoes2004, MonodRegoes
+  Papers/                    Monod1949, Regoes2004, MonodRegoes, Grilli2020
   Papers/Examples/           NutrientResponse, MicrobialInhibition, Composition
 Main.lean                    biolib-sim command line
-python/                      biolib_sim.py wrapper and its checks
-scripts/                     sbml_to_lean.py, check.sh
+python/                      biolib_sim.py wrapper, fit_slm.py, realism.py, checks
+scripts/                     sbml_to_lean.py, check.sh, fetch_reference.sh
 examples/sbml/               SBML test model
 docs/                        architecture, formalization guide, proof status, roadmap
 ```

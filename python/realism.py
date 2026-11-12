@@ -6,6 +6,8 @@ repository root:
 
     scripts/fetch_reference.sh          # once
     lake build biolib-sim
+    python3 python/realism.py --held-out     # fit the stochastic logistic model on
+                                             # half of each cohort, compare with the rest
     python3 python/realism.py [simulator options, e.g. --species 300]
 
 The statistics are standard community-ecology summaries.  Agreement on them is
@@ -129,6 +131,65 @@ def parse_sim_args(argv):
     return params
 
 
+def reference_table(name: str) -> np.ndarray:
+    """Unrarefied counts (samples x taxa) of one reference cohort."""
+    if name == "gevers":
+        return load_otu_table(REF / "gevers" / "otutable.txt")[1]
+    ids, counts = load_otu_table(REF / "yatsunenko" / "otutable.txt")
+    meta = load_mapping(REF / "yatsunenko" / "mapping-orig.txt")
+
+    def keep(sample):
+        row = meta.get(sample)
+        try:
+            age = float(row["AGE"]) if row else -1.0
+        except ValueError:
+            return False
+        if row is None or age < 18 or not row.get("AGE_UNIT", "years").lower().startswith("year"):
+            return False
+        return name == "yatsunenko_adults" or "United States" in row["COUNTRY"]
+
+    return counts[np.array([keep(s) for s in ids])]
+
+
+def held_out_comparison(name: str, seed: int = 0) -> None:
+    """Fit the stochastic logistic model on half of a cohort and compare its
+    predictions with the other half.
+
+    The fit uses per-species moments and total read counts only.  The statistics
+    in the table are predictions.  The column "half-half" shows how far two
+    halves of the real data differ from each other, which is the best agreement
+    any model could reach.  Two fits are shown: Taylor's exponent fixed at 2 as
+    in the paper, and estimated from the data.
+    """
+    from fit_slm import SIMULATOR_KEYS, fit_slm
+
+    rng = np.random.default_rng(seed)
+    counts = rarefy(reference_table(name), DEPTH, rng)
+    order = rng.permutation(len(counts))
+    train, test = counts[order[: len(order) // 2]], counts[order[len(order) // 2:]]
+    cols = {
+        "held-out half": statistics(test[:, test.sum(axis=0) > 0]),
+        "train half": statistics(train[:, train.sum(axis=0) > 0]),
+    }
+    print(f"\n== {name}: {len(train)} samples to fit, {len(test)} held out, depth {DEPTH}")
+    for label, fixed in (("sim, z=2", 2.0), ("sim, z fitted", None)):
+        fit = fit_slm(train, fix_exponent=fixed)
+        params = {k: fit[k] for k in SIMULATOR_KEYS}
+        sim = simulate(model="slm", samples=len(test), depth=DEPTH, treated_frac=0.0,
+                       seed=seed + 1, **params)
+        cols[label] = statistics(sim.counts[:, sim.counts.sum(axis=0) > 0])
+        print(f"fit ({label}): " + ", ".join(f"{k}={v:.4g}" for k, v in params.items()))
+    width = max(len(k) for k in cols["train half"])
+    ref = cols["held-out half"]
+    print(" " * width + f"{'held-out':>10}{'half-half':>11}" +
+          "".join(f"{n:>15}{'error':>8}" for n in list(cols)[2:]))
+    for key in ref:
+        line = f"{key:<{width}}{ref[key]:>10.3f}{(cols['train half'][key] - ref[key]) / ref[key]:>+11.0%}"
+        for n in list(cols)[2:]:
+            line += f"{cols[n][key]:>15.3f}{(cols[n][key] - ref[key]) / ref[key]:>+8.0%}"
+        print(line)
+
+
 def reference_statistics() -> dict:
     """Statistics of the reference tables, cached in data/reference/stats.json."""
     import json
@@ -165,7 +226,11 @@ def compare(params: dict, quiet: bool = False) -> dict:
 
 
 def main():
-    compare(parse_sim_args(sys.argv[1:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "--held-out":
+        for name in sys.argv[2:] or ["yatsunenko_us_adults", "yatsunenko_adults", "gevers"]:
+            held_out_comparison(name)
+    else:
+        compare(parse_sim_args(sys.argv[1:]))
 
 
 if __name__ == "__main__":

@@ -48,6 +48,11 @@ _FLAGS = {
     "capacity_sd": "--capacity-sd",
     "env_sd": "--env-sd",
     "bias_sd": "--bias-sd",
+    "model": "--model",
+    "beta": "--beta",
+    "taylor_exponent": "--taylor-exponent",
+    "sampling": "--sampling",
+    "mad_sigma": "--mad-sigma",
 }
 
 
@@ -79,6 +84,8 @@ class SimulatedData:
 
 
 def _format(value) -> str:
+    if isinstance(value, str):
+        return value
     if isinstance(value, bool):
         raise TypeError("simulator options are numbers, not booleans")
     if isinstance(value, int):
@@ -86,8 +93,8 @@ def _format(value) -> str:
             raise ValueError("simulator options must be nonnegative")
         return str(value)
     value = float(value)
-    if not (value >= 0.0) or value == float("inf"):
-        raise ValueError("simulator options must be finite and nonnegative")
+    if value != value or abs(value) == float("inf"):
+        raise ValueError("simulator options must be finite")
     # The Lean argument parser reads plain decimals, not exponent notation.
     return f"{value:.12f}"
 

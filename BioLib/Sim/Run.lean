@@ -8,7 +8,16 @@ Everything here runs on `Float` and nothing here is proved.  In particular the
 random number generation and the multinomial sampler are ordinary unverified
 code.
 
-Generative model for one data set:
+Two generative models are available.
+
+**Stochastic logistic model** (default; `Config.slm`).  Each species' abundance
+is drawn from the stationary gamma distribution of the model of Grilli (2020),
+with mean abundances lognormal across species; see `BioLib.Papers.Grilli2020`.
+Species do not interact.  Its parameters (`beta`, `taylorExponent`, `madSigma`, `species`)
+are meant to be estimated from data (`python/fit_slm.py`).  The treatment
+effect and the measurement bias are additions with no source.
+
+**Lotka–Volterra competition** (`Config.slm := false`):
 
 1. A species pool.  Species `i` has growth rate `rᵢ`, carrying capacity `Kᵢ`
    (lognormal across species) and drug sensitivity `sᵢ`.  The interaction
@@ -57,6 +66,24 @@ structure Config where
   envSd : Float := 0.0
   /-- Standard deviation of the log of the measurement bias. -/
   biasSd : Float := 0.0
+  /-- Use the stochastic logistic model (`true`) or Lotka–Volterra competition (`false`). -/
+  slm : Bool := true
+  /-- Stochastic logistic model: gamma shape `β` of abundance fluctuations
+  (`β = 2 / σ - 1`) for a species of mean abundance `betaRefAbundance`. -/
+  beta : Float := 1.0
+  /-- Stochastic logistic model: exponent `z` of Taylor's law, variance ∝ mean ^ z.
+  The paper's law is `z = 2`, for which every species has shape `beta`.  In
+  general a species of mean abundance `m` has shape
+  `beta * (m / betaRefAbundance) ^ (2 - z)`. -/
+  taylorExponent : Float := 2.0
+  /-- Stochastic logistic model: standard deviation of the natural log of mean
+  abundance across species.  Mean abundances are rescaled to sum to one. -/
+  madSigma : Float := 2.0
+  /-- Stochastic logistic model: draw read counts as independent Poisson
+  variables with mean `depth * abundance`, without normalizing (the sampling
+  model of the paper, Eq. 7), instead of normalizing to relative abundance and
+  drawing exactly `depth` reads. -/
+  poisson : Bool := false
 
 /-- Uniform draw from `[0, 1)`. -/
 def uniform (g : StdGen) : Float × StdGen :=
@@ -263,6 +290,138 @@ def fastCheck (n k seed : Nat) : Float :=
   let fast := fastSimulate pool.r pool.s (sparseRows pool.A) 0.7 c.dt k x₀
   Fin.foldl n (fun acc i => max acc (Float.abs (generic[i] - fast[i]))) 0.0
 
+/-- Gamma draw with shape `a ≥ 1` and scale 1 (Marsaglia–Tsang rejection method). -/
+def gammaGe1 (a : Float) (g : StdGen) : Float × StdGen :=
+  let d := a - 1.0 / 3.0
+  let c := 1.0 / Float.sqrt (9.0 * d)
+  let rec loop (fuel : Nat) (g : StdGen) : Float × StdGen :=
+    match fuel with
+    | 0 => (d, g)
+    | fuel + 1 =>
+      let (z, g) := normal g
+      let v := (1.0 + c * z) * (1.0 + c * z) * (1.0 + c * z)
+      let (u, g) := uniform g
+      if v > 0.0 && Float.log (1.0 - u) < 0.5 * z * z + d - d * v + d * Float.log v then
+        (d * v, g)
+      else loop fuel g
+  loop 1000 g
+
+/-- Gamma draw with shape `a > 0` and scale 1. -/
+def gammaDraw (a : Float) (g : StdGen) : Float × StdGen :=
+  if a < 1.0 then
+    let (x, g) := gammaGe1 (a + 1.0) g
+    let (u, g) := uniform g
+    (x * Float.pow (1.0 - u) (1.0 / a), g)
+  else gammaGe1 a g
+
+/-- Mean abundance at which `Config.beta` applies when Taylor's exponent is not 2. -/
+def betaRefAbundance : Float := 1.0e-3
+
+/-- Poisson draw with mean `lam`, by multiplying uniforms (Knuth), applied to
+chunks of mean at most 30 so that `exp (-chunk)` does not underflow. -/
+def poissonDraw (lam : Float) (g : StdGen) : Nat × StdGen :=
+  let chunks := (lam / 30.0).ceil.toUInt64.toNat + 1
+  let limit := Float.exp (-(lam / chunks.toFloat))
+  (List.range chunks).foldl (fun (acc : Nat × StdGen) _ =>
+    let rec loop (fuel k : Nat) (p : Float) (g : StdGen) : Nat × StdGen :=
+      match fuel with
+      | 0 => (k, g)
+      | fuel + 1 =>
+        let (u, g) := uniform g
+        let p := p * (1.0 - u)
+        if p > limit then loop fuel (k + 1) p g else (k, g)
+    let (k, g) := loop 2000 0 1.0 acc.2
+    (acc.1 + k, g)) (0, g)
+
+/-- Species pool for the stochastic logistic model. -/
+structure SlmPool (n : Nat) where
+  /-- Mean abundances, summing to one. -/
+  mean : Vector Float n
+  /-- Noise parameter `σᵢ = 2 / (βᵢ + 1)` of each species. -/
+  σ : Vector Float n
+  /-- Carrying capacities `Kᵢ = meanᵢ / (1 - σᵢ / 2)`. -/
+  K : Vector Float n
+  /-- Sensitivities, in units of `1 / (τ * concentration)`. -/
+  s : Vector Float n
+  bias : Array (Vector Float n)
+
+/-- Draw a pool for the stochastic logistic model.  Mean abundances are
+lognormal across species and rescaled to sum to one.  Each species' gamma
+shape follows Taylor's law with the configured exponent. -/
+def drawSlmPool (c : Config) (g : StdGen) : SlmPool c.species × StdGen :=
+  let n := c.species
+  let (raw, g) := drawVec n (fun g =>
+    let (z, g) := normal g
+    (Float.exp (c.madSigma * z), g)) g
+  let total := sumFin (n := n) fun i => raw[i]
+  let mean : Vector Float n := Vector.ofFn fun i => raw[i] / total
+  let σ : Vector Float n := Vector.ofFn fun i =>
+    2.0 / (c.beta * Float.pow (mean[i] / betaRefAbundance) (2.0 - c.taylorExponent) + 1.0)
+  let K : Vector Float n := Vector.ofFn fun i => mean[i] / (1.0 - σ[i] / 2.0)
+  let (s, g) := drawVec n (fun g =>
+    let (u, g) := uniform g
+    if u < c.sensitiveFrac then uniformIn 0.5 2.0 g else (0.0, g)) g
+  let (bias, g) := (List.range (max c.studies 1)).foldl
+    (fun (acc : Array (Vector Float n) × StdGen) _ =>
+      let (b, g) := drawVec n (fun g =>
+        let (z, g) := normal g
+        (Float.exp (c.biasSd * z), g)) acc.2
+      (acc.1.push b, g)) (#[], g)
+  ({ mean, σ, K, s, bias }, g)
+
+/-- One sample from the stationary distribution of the stochastic logistic
+model.  In a treated sample each species keeps the fraction
+`growthFraction 1 sᵢ dose` of its growth rate; its abundance is then gamma
+with shape `slmShape σᵢ f` and mean `slmMean Kᵢ σᵢ f`, or zero when the shape
+is not positive (the species cannot persist). -/
+def drawSlmSample (c : Config) (pool : SlmPool c.species) (idx : Nat) (g : StdGen) :
+    Sample c.species × StdGen :=
+  let n := c.species
+  let study := idx % max c.studies 1
+  let (u, g) := uniform g
+  let treated : Bool := u < c.treatedFrac
+  let B := if treated then c.dose else 0.0
+  let (x, g) := Fin.foldl n (fun (acc : Vector Float n × StdGen) i =>
+    let f := growthFraction 1.0 pool.s[i] B
+    let shape := slmShape pool.σ[i] f
+    if shape > 0.0 then
+      let (γ, g) := gammaDraw shape acc.2
+      (acc.1.set i (slmMean pool.K[i] pool.σ[i] f / shape * γ), g)
+    else (acc.1, acc.2)) (Vector.replicate n 0.0, g)
+  let b := pool.bias[study]!
+  let total := sumFin (n := n) fun i => x[i]
+  let (counts, g) :=
+    if c.poisson then
+      Fin.foldl n (fun (acc : Vector Nat n × StdGen) i =>
+        let lam := c.depth.toFloat * b[i] * x[i]
+        if lam > 0.0 then
+          let (k, g) := poissonDraw lam acc.2
+          (acc.1.set i k, g)
+        else acc) (Vector.replicate n 0, g)
+    else if total > 0.0 then sampleCounts (observeFast (fun i => b[i]) x) c.depth g
+    else (Vector.replicate n 0, g)
+  ({ study, treated, total, counts }, g)
+
+/-- Time-averaged mean and squared coefficient of variation of one
+Euler–Maruyama trajectory of the stochastic logistic model with `τ = K = 1`,
+returned as relative errors against the stationary values `1 - σ / 2` and
+`1 / β`.  A test of the simulation against the stationary law, not a proof. -/
+def slmCheck (β h : Float) (burn steps seed : Nat) : Float × Float :=
+  let σ := 2.0 / (β + 1.0)
+  let amp := Float.sqrt (σ * h)
+  let advance := fun (x : Float) (g : StdGen) =>
+    let (z, g) := normal g
+    (slmStep 1.0 1.0 h (amp * z) x, g)
+  let (x, g) := (List.range burn).foldl (fun (acc : Float × StdGen) _ => advance acc.1 acc.2)
+    (0.5, mkStdGen seed)
+  let (_, _, s1, s2) := (List.range steps).foldl
+    (fun (acc : Float × StdGen × Float × Float) _ =>
+      let (x, g) := advance acc.1 acc.2.1
+      (x, g, acc.2.2.1 + x, acc.2.2.2 + x * x)) (x, g, 0.0, 0.0)
+  let mean := s1 / steps.toFloat
+  let cv2 := (s2 / steps.toFloat - mean * mean) / (mean * mean)
+  ((mean - (1.0 - σ / 2.0)) / (1.0 - σ / 2.0), (cv2 - 1.0 / β) * β)
+
 /-- CSV header line. -/
 def csvHeader (n : Nat) : String :=
   "sample,study,treated,total_abundance," ++
@@ -276,14 +435,22 @@ def Sample.toCsv {n : Nat} (idx : Nat) (s : Sample n) : String :=
 /-- Run the whole simulation, writing CSV lines with `emit`. -/
 def run (c : Config) (emit : String → IO Unit) : IO Unit := do
   let g := mkStdGen c.seed
-  let (pool, g) := drawPool c g
   emit (csvHeader c.species)
-  let rows := sparseRows pool.A
-  let mut g := g
-  for idx in [0:c.samples] do
-    let (s, g') := drawSample c pool rows idx g
-    g := g'
-    emit (s.toCsv idx)
+  if c.slm then
+    let (pool, g) := drawSlmPool c g
+    let mut g := g
+    for idx in [0:c.samples] do
+      let (s, g') := drawSlmSample c pool idx g
+      g := g'
+      emit (s.toCsv idx)
+  else
+    let (pool, g) := drawPool c g
+    let rows := sparseRows pool.A
+    let mut g := g
+    for idx in [0:c.samples] do
+      let (s, g') := drawSample c pool rows idx g
+      g := g'
+      emit (s.toCsv idx)
 
 /-- Convert an exact rational to a float.  Numerator and denominator are first
 shifted right so that the denominator has about 64 bits; converting very large

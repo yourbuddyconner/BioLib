@@ -170,6 +170,51 @@ Measured, not proved: on a three-species system the float simulation differs
 from the exact rational one by less than one machine epsilon over 16 steps
 (`biolib-sim --selfcheck 16`).
 
+Also measured, not proved: the specialized float code path gives output
+identical to the generic definition on a random 40-species system; an
+Euler–Maruyama trajectory of the stochastic logistic model has time-averaged
+mean within 1% and squared coefficient of variation within 2% of the
+stationary law (`biolib-sim --selfcheck`).
+
+## Grilli (2020): stochastic logistic model
+
+| Theorem | Statement | Assumptions | Status |
+| --- | --- | --- | --- |
+| ★ `stationaryDensity_eq_afd` | the stationary density (Eq. 24) is the gamma law (Eq. 1) with `β = 2/σ − 1`, mean `K(1 − σ/2)` | `K ≠ 0`, `σ ≠ 0`, `σ ≠ 2` | Proved |
+| ★ `stationaryDensity_zero_flux` | Eq. 24 satisfies the zero-flux stationary Fokker–Planck equation of Eq. 23 (Itô) | `τ, K, σ ≠ 0`, `x > 0` | Proved |
+| ★ `absenceProb_eq` | the absence probability of Eq. 9 equals Eq. 13 at zero reads | `β > 0`, `x̄ ≥ 0`, `N ≥ 0` | Proved |
+| ★ `tendsto_occupancy` | predicted occupancy tends to 1 as reads grow | `β > 0`, `x̄ > 0` | Proved |
+| ★ `slmDrift_sub_loss` | a per-capita loss gives the same model with `τ/f`, `K f` (extension, not in the paper) | `τ, K, f ≠ 0` | Proved |
+| `slmShape_rescaled`, `slmMean_rescaled`, `slmShape_pos_iff` | parameters used for treated samples; persistence iff `f > σ/2` | as stated | Proved |
+
+Not proved: that Eq. 24 is the stationary distribution of the stochastic
+process (Mathlib has no stochastic differential equations); the gamma–Poisson
+integral behind Eq. 13; any of the paper's three empirical laws.
+
+### Simulator against real data (empirical, 2026-11-11)
+
+Reference: gut 16S OTU tables from the Knights Lab MLRepo (Yatsunenko et al.
+adults, the US subset, and Gevers et al.), rarefied to 5000 reads. The model
+is fitted on half of each cohort and compared with the other half. Nothing is
+tuned to the comparison statistics.
+
+- Estimator check: on simulated data with known parameters, `fit_slm`
+  recovers the species count and abundance spread within 3%, Taylor's exponent
+  within 0.06 and the shape within 15%, from 64 samples.
+- Predicted within about 15% of held-out data: number of taxa observed, zero
+  fraction, share of low-prevalence taxa, spread of log mean abundance,
+  between-sample dissimilarity (with fitted exponent).
+- Mispredicted: the share of the top taxon (about 0.28 simulated against 0.11
+  real), Shannon diversity (about 3.0 against 4.0), fluctuation size of common
+  taxa (30 to 60% too high), richness (13 to 28% too low).
+- Findings about the reference data: the paper's occupancy formula with
+  per-species shape predicts occupancy with mean absolute error 0.027; the
+  sampling-corrected Taylor exponent is 1.6 to 1.9, below the paper's 2;
+  abundant taxa fluctuate much less than rare ones.
+- Caveats: three cohorts from one repository, shallow depth, closed-reference
+  OTUs whose rare tail may contain artefacts. The paper's own estimation
+  procedure (Supplementary Notes) was not consulted.
+
 ## Not proved, not checked
 
 **Empirical assumptions.** That any organism's production follows a saturation
@@ -197,9 +242,9 @@ opt-in basis. Units and the base of logarithmic rates are not represented.
 The random number generation, the parameter draws and the multinomial sampler
 in `Sim.Run` are unverified code. The error of the Euler method against the
 true solution of the differential equation is not bounded. Whether simulated
-communities resemble real ones is an empirical question that has not been
-examined at all: the interaction matrix, growth rates, sensitivities and bias
-are drawn from arbitrary distributions.
+communities resemble real ones is only partly examined (see "Simulator
+against real data"). The treatment effect and measurement bias have no source,
+and the Lotka–Volterra generator's parameter distributions are arbitrary.
 
 **The SBML importer.** The Python script is not verified. Its output is
 type-checked by Lean, but nothing proves the output matches the SBML file. It
