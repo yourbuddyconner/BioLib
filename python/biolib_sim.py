@@ -45,6 +45,8 @@ _FLAGS = {
     "presence": "--presence",
     "connectance": "--connectance",
     "strength": "--strength",
+    "capacity_sd": "--capacity-sd",
+    "env_sd": "--env-sd",
     "bias_sd": "--bias-sd",
 }
 

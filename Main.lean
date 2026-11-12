@@ -16,17 +16,20 @@ def usage : String :=
   --samples N         number of samples (default 100)
   --studies N         number of studies, each with its own measurement bias (default 1)
   --depth N           reads per sample (default 10000)
-  --steps N           Euler steps per sample (default 2000)
-  --dt X              Euler step size (default 0.01)
+  --steps N           Euler steps per sample (default 600)
+  --dt X              Euler step size (default 0.02)
   --seed N            random seed (default 0)
   --treated-frac X    probability that a sample is treated (default 0.5)
   --dose X            inhibitor concentration in treated samples (default 1.0)
   --sensitive-frac X  probability that a species is sensitive (default 0.5)
   --presence X        probability that a species starts present (default 0.8)
-  --connectance X     probability of a competitive interaction (default 0.2)
-  --strength X        largest competition strength (default 0.5)
+  --connectance X     probability of a competitive interaction (default 0.05)
+  --strength X        expected total competition on a species (default 0.5)
+  --capacity-sd X     std. dev. of log carrying capacity across species (default 0)
+  --env-sd X          std. dev. of log per-sample environmental factor (default 0)
   --bias-sd X         std. dev. of log measurement bias per study (default 0)
-  --selfcheck N       largest Float-vs-exact-rational difference over N ≤ 16 steps"
+  --selfcheck N       largest Float-vs-exact-rational difference over N ≤ 16 steps,
+                      then the difference between the fast and generic code paths"
 
 def parseFloat (s : String) : Option Float :=
   match s.splitOn "." with
@@ -62,6 +65,8 @@ def parseArgs : Config → List String → Except String Config
     | "--presence" => float fun v => { c with presence := v }
     | "--connectance" => float fun v => { c with connectance := v }
     | "--strength" => float fun v => { c with strength := v }
+    | "--capacity-sd" => float fun v => { c with capacitySd := v }
+    | "--env-sd" => float fun v => { c with envSd := v }
     | "--bias-sd" => float fun v => { c with biasSd := v }
     | _ => .error s!"unknown option '{flag}'"
   | _, [flag] => .error s!"option '{flag}' needs a value"
@@ -75,7 +80,9 @@ def main (args : List String) : IO UInt32 := do
       if k > 16 then
         IO.eprintln "--selfcheck supports at most 16 steps: exact rational states double in size every step"
         return 2
-      IO.println s!"{selfCheck k / 2.220446049250313e-16} machine epsilons"; return 0
+      IO.println s!"{selfCheck k / 2.220446049250313e-16} machine epsilons"
+      IO.println s!"{fastCheck 40 300 1} fast-vs-generic difference"
+      return 0
     | none => IO.eprintln "--selfcheck needs a natural number"; return 2
   | _ =>
     match parseArgs {} args with

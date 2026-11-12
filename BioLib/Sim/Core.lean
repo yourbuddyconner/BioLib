@@ -56,4 +56,10 @@ def simulate (r s : Fin n → α) (A : Fin n → Fin n → α) (B h : α) (k : N
 def observe (b : Fin n → α) (v : Vector α n) : Vector α n :=
   stepVec (fun x => relAbundance (applyBias b x)) v
 
+/-- `observe`, computing the total once instead of once per component. -/
+def observeFast (b : Fin n → α) (v : Vector α n) : Vector α n :=
+  let w := stepVec (applyBias b) v
+  let total := sumFin fun i : Fin n => w[i]
+  w.map (· / total)
+
 end BioLib.Sim

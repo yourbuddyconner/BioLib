@@ -52,6 +52,11 @@ theorem stepVec_getElem {α : Type} (f : (Fin n → α) → Fin n → α) (v : V
     (i : Fin n) : (stepVec f v)[i] = f (fun j => v[j]) i := by
   simp [stepVec]
 
+/-- The single-pass observation computes the same values as `observe`. -/
+theorem observeFast_getElem {α : Type} [Add α] [Mul α] [Div α] [OfNat α 0] (b : Fin n → α)
+    (v : Vector α n) (i : Fin n) : (observeFast b v)[i] = (observe b v)[i] := by
+  simp [observeFast, observe, stepVec, relAbundance]
+
 /-- The simulated rate law is the generalized Lotka–Volterra field of `BioLib.Ecology`. -/
 theorem glvRate_eq_glvField (r : Fin n → ℝ) (A : Fin n → Fin n → ℝ) (x : Fin n → ℝ) :
     glvRate r A x = Ecology.glvField r (Matrix.of A) x := by
